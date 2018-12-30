@@ -2,7 +2,7 @@
 set -e
 
 function nix_app_add() {
-	desktopPath="$1"
+	local desktopPath="$1"
 
 	if [ -z "$desktopPath" ] ; then
 		echo "Usage: $0 ~/.nix-profile/share/applications/NAME.desktop" >&2
@@ -16,31 +16,24 @@ function nix_app_add() {
 		desktopPath="$HOME/.nix-profile/share/applications/$desktopPath"
 	fi
 
-	desktopName="${desktopPath##*/}"
-	desktopNameBase="${desktopName%.*}"
+	local desktopName="${desktopPath##*/}"
+	local desktopNameBase="${desktopName%.*}"
 	if [ ! -f "$desktopPath" ] ; then
 		echo "File does not exist: $desktopPath" >&2
 		return 1
 	fi
-	cmdName="$(/bin/grep '^Exec=' "$desktopPath" | head -n1 | sed 's/Exec=//' | sed 's/ .*//')"
-	iconName="$(/bin/grep '^Icon=' "$desktopPath" | head -n1  | sed 's/Icon=//')"
+	local cmdName="$(/bin/grep '^Exec=' "$desktopPath" | head -n1 | sed 's/Exec=//' | sed 's/ .*//')"
+	local iconName="$(/bin/grep '^Icon=' "$desktopPath" | head -n1  | sed 's/Icon=//')"
 	echo "Adding application $desktopPath with command '$cmdName' and icon '$iconName'"
 
 
-	DIR="$HOME/.local/share/applications"
-	# DIR2="$HOME/Desktop" # enable or disable adding to desktop
-
-
-	targetPath="$DIR/$desktopNameBase.desktop"
-	targetPath2="$DIR2/$desktopNameBase.desktop"
+	local targetPath="$HOME/.local/share/applications/$desktopNameBase.desktop"
 
 	cp ~/.nix-profile/share/applications/$desktopNameBase.desktop "$targetPath"
 
 	sed -i '/TryExec=/d' "$targetPath"
 	sed -i "s|Exec=|Exec=$HOME/nixman/bin/nix-run |g" "$targetPath"
 	sed -i "s|/nix/store/.*/bin/||g" "$targetPath"
-
-	# ls /usr/share/applications/$desktopNameBase.desktop
 
 	if [ -f "/usr/bin/$cmdName" ] ; then
 		echo "--- found /usr/bin/$cmdName  -> adding '(Nix)' to the end of Name= lines"
@@ -51,7 +44,9 @@ function nix_app_add() {
 
 	chmod 744 "$targetPath"
 
-	[ -n "$DIR2" ] && cp "$targetPath" "$targetPath2" && echo "Created: $targetPath2"
+	# if want to send to desktop
+	# targetPath2="$HOME/Desktop/$desktopNameBase.desktop"
+	# cp "$targetPath" "$targetPath2" && echo "Created: $targetPath2"
 
 	for SIZE in 16x16 32x32 48x48 64x64 128x128 ; do
 		mkdir -p ~/.local/share/icons/hicolor/$SIZE/apps/
@@ -66,4 +61,5 @@ function nix_app_add() {
 
 for arg in "$@" ; do
 	nix_app_add "$arg"
+	echo
 done
