@@ -1,0 +1,1 @@
+ls -1 ~/.nix-profile/share/applications/ | xargs -n1 nix-application-add

@@ -1,0 +1,95 @@
+#!/bin/bash
+set -e # exit on error
+
+command="Command: nix-git $@"
+dir="$(dirname $(readlink ~/.nix-profile))"
+
+cd "$dir"
+
+~/.nix-profile/bin/nix-env "$@"
+
+
+# find the name of new profile
+profileName=`readlink profile | sed 's/-link//'`
+
+if [ -z "$profileName" ] ; then
+    echo "Could not detect profile name" >&1
+    exit 1
+fi
+
+# TODO: can try greping these lines in output of nix-env
+# replacing old 'PKG-VERSION'
+# installing 'PKG-VERSION'
+
+
+~/.nix-profile/bin/nix-env -q > packages.txt
+ls -1 ~/.nix-profile/share/applications/ > applications.txt
+
+if [ ! -d .git ] ; then
+	git init
+fi
+
+stat=($(git diff --numstat packages.txt))
+
+if [[ ${#stat[@]} == 0 ]] ; then
+	installedCount=0
+	removedCount=0
+elif [[ ${#stat[@]} == 3 ]] ; then
+	installedCount=${stat[0]}
+	removedCount=${stat[1]}
+else
+    echo "Unexpected diff stat: ${stat[@]}" >&1
+    exit 1
+fi
+
+installed=($(git diff packages.txt | /bin/grep '^+[^+]' | sed 's/^+//g'))
+removed=($(git diff packages.txt | /bin/grep '^-[^-]' | sed 's/^-//g'))
+
+
+msg="$profileName:"
+if [[ "$installedCount" == 0 &&  "$removedCount" == 0 ]] ; then
+	# probably one or more packages were updated to the same version numbers (but newer versions/hashes)
+	# or flags are changed with --set-flag
+	msg="$msg $command"
+else
+	msg2=
+	msg3=
+	if [[ "$installedCount" == 1 ]] ; then
+		msg2="install ${installed[0]}"
+	elif [[ "$installedCount" > 1 ]] ; then
+		msg2="install $installedCount packages"
+	fi
+	if [[ $removedCount > 0 ]] ; then
+		if [ -n "$msg2" ] ; then
+			msg3=", "
+		fi
+		if [[ $removedCount == 1 ]] ; then
+			msg3="${msg3}remove ${removed[0]}"
+		elif [[ $removedCount > 1 ]] ; then
+			msg3="${msg3}remove $removedCount packages"
+		fi
+	fi
+	msg="$msg ${msg2}${msg3}
+$command"
+fi
+
+
+
+
+app_installed=($(git diff applications.txt | /bin/grep '^+[^+]' | sed 's/^+//'))
+#app_removed=($(git diff packages.txt | /bin/grep '^-[^-]' | sed 's/^-//g'))
+
+
+
+git add -A
+git commit -m "$msg"
+git push
+
+for desktopName in "${app_installed[@]}" ; do
+	nix-application-add "$HOME/.nix-profile/share/applications/$desktopName"
+done
+
+# ~/.nix-profile/bin/nix-env -q -p $dir/profile-??-link
+
+
+
