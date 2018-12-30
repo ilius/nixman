@@ -27,6 +27,7 @@ ls -1 ~/.nix-profile/share/applications/ > applications.txt
 
 if [ ! -d .git ] ; then
 	git init
+	# TODO: ask for a git remote url, and add remote
 fi
 
 stat=($(git diff --numstat packages.txt))
@@ -83,7 +84,10 @@ app_installed=($(git diff applications.txt | /bin/grep '^+[^+]' | sed 's/^+//'))
 
 git add -A
 git commit -m "$msg"
-git push
+
+if git remote get-url origin ; then
+	git push
+fi
 
 for desktopName in "${app_installed[@]}" ; do
 	nix-application-add "$HOME/.nix-profile/share/applications/$desktopName"
