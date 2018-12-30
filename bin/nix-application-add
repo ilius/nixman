@@ -1,63 +1,69 @@
 #!/bin/bash
 set -e
 
-desktopPath="$1"
+function nix_app_add() {
+	desktopPath="$1"
 
-if [ -z "$desktopPath" ] ; then
-	echo "Usage: $0 ~/.nix-profile/share/applications/NAME.desktop" >&2
-	exit 1
-fi
-
-if [[ "$desktopPath" != *".desktop" ]] ; then
-	desktopPath="$desktopPath.desktop"
-fi
-if [ ! -f "$desktopPath" ] ; then
-	desktopPath="$HOME/.nix-profile/share/applications/$desktopPath"
-fi
-
-desktopName="${desktopPath##*/}"
-desktopNameBase="${desktopName%.*}"
-if [ ! -f "$desktopPath" ] ; then
-	echo "File does not exist: $desktopPath"
-	continue
-fi
-cmdName="$(/bin/grep '^Exec=' "$desktopPath" | head -n1 | sed 's/Exec=//' | sed 's/ .*//')"
-iconName="$(/bin/grep '^Icon=' "$desktopPath" | head -n1  | sed 's/Icon=//')"
-echo "Adding application $desktopPath with command '$cmdName' and icon '$iconName'"
-
-
-DIR="$HOME/.local/share/applications"
-# DIR2="$HOME/Desktop" # enable or disable adding to desktop
-
-
-targetPath="$DIR/$desktopNameBase.desktop"
-targetPath2="$DIR2/$desktopNameBase.desktop"
-
-cp ~/.nix-profile/share/applications/$desktopNameBase.desktop "$targetPath"
-
-sed -i '/TryExec=/d' "$targetPath"
-sed -i "s|Exec=|Exec=$HOME/nixman/bin/nix-run |g" "$targetPath"
-sed -i "s|/nix/store/.*/bin/||g" "$targetPath"
-
-# ls /usr/share/applications/$desktopNameBase.desktop
-
-if [ -f "/usr/bin/$cmdName" ] ; then
-	echo "--- found /usr/bin/$cmdName  -> adding '(Nix)' to the end of Name= lines"
-	sed -i '/^Name=.*/s/$/ (Nix)/g' "$targetPath"
-fi
-
-echo "Created: $targetPath"
-
-chmod 744 "$targetPath"
-
-[ -n "$DIR2" ] && cp "$targetPath" "$targetPath2" && echo "Created: $targetPath2"
-
-for SIZE in 16x16 32x32 48x48 64x64 128x128 ; do
-	mkdir -p ~/.local/share/icons/hicolor/$SIZE/apps/
-	if cp ~/.nix-profile/share/icons/hicolor/$SIZE/apps/$iconName.png ~/.local/share/icons/hicolor/$SIZE/apps/ ; then
-		echo "---  added:" ~/.local/share/icons/hicolor/$SIZE/apps/$iconName.png
-	else
-		continue
+	if [ -z "$desktopPath" ] ; then
+		echo "Usage: $0 ~/.nix-profile/share/applications/NAME.desktop" >&2
+		return 1
 	fi
-	chmod 744 ~/.local/share/icons/hicolor/$SIZE/apps/$iconName.png
+
+	if [[ "$desktopPath" != *".desktop" ]] ; then
+		desktopPath="$desktopPath.desktop"
+	fi
+	if [ ! -f "$desktopPath" ] ; then
+		desktopPath="$HOME/.nix-profile/share/applications/$desktopPath"
+	fi
+
+	desktopName="${desktopPath##*/}"
+	desktopNameBase="${desktopName%.*}"
+	if [ ! -f "$desktopPath" ] ; then
+		echo "File does not exist: $desktopPath" >&2
+		return 1
+	fi
+	cmdName="$(/bin/grep '^Exec=' "$desktopPath" | head -n1 | sed 's/Exec=//' | sed 's/ .*//')"
+	iconName="$(/bin/grep '^Icon=' "$desktopPath" | head -n1  | sed 's/Icon=//')"
+	echo "Adding application $desktopPath with command '$cmdName' and icon '$iconName'"
+
+
+	DIR="$HOME/.local/share/applications"
+	# DIR2="$HOME/Desktop" # enable or disable adding to desktop
+
+
+	targetPath="$DIR/$desktopNameBase.desktop"
+	targetPath2="$DIR2/$desktopNameBase.desktop"
+
+	cp ~/.nix-profile/share/applications/$desktopNameBase.desktop "$targetPath"
+
+	sed -i '/TryExec=/d' "$targetPath"
+	sed -i "s|Exec=|Exec=$HOME/nixman/bin/nix-run |g" "$targetPath"
+	sed -i "s|/nix/store/.*/bin/||g" "$targetPath"
+
+	# ls /usr/share/applications/$desktopNameBase.desktop
+
+	if [ -f "/usr/bin/$cmdName" ] ; then
+		echo "--- found /usr/bin/$cmdName  -> adding '(Nix)' to the end of Name= lines"
+		sed -i '/^Name=.*/s/$/ (Nix)/g' "$targetPath"
+	fi
+
+	echo "Created: $targetPath"
+
+	chmod 744 "$targetPath"
+
+	[ -n "$DIR2" ] && cp "$targetPath" "$targetPath2" && echo "Created: $targetPath2"
+
+	for SIZE in 16x16 32x32 48x48 64x64 128x128 ; do
+		mkdir -p ~/.local/share/icons/hicolor/$SIZE/apps/
+		if cp ~/.nix-profile/share/icons/hicolor/$SIZE/apps/$iconName.png ~/.local/share/icons/hicolor/$SIZE/apps/ ; then
+			echo "---  added:" ~/.local/share/icons/hicolor/$SIZE/apps/$iconName.png
+		else
+			continue
+		fi
+		chmod 744 ~/.local/share/icons/hicolor/$SIZE/apps/$iconName.png
+	done
+}
+
+for arg in "$@" ; do
+	nix_app_add "$arg"
 done
