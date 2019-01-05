@@ -1,0 +1,5 @@
+#!/bin/bash
+usage="$0 packages.txt"
+
+cat "$@" | sed 's/-[0-9.]*$//g' | xargs -n1 nix-git -i
+
