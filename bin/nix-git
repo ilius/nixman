@@ -6,6 +6,16 @@ dir="$(dirname $(readlink ~/.nix-profile))"
 
 cd "$dir"
 
+if [ ! -d ".git" ] ; then
+	echo "Initializing git repo in $dir"
+	git init
+	git branch -m $(hostname)
+	~/.nix-profile/bin/nix-env -q > packages.txt
+	ls -1 ~/.nix-profile/share/applications/ 2>&1 | true > applications.txt
+	git add -A
+	git commit -m "initial commit on $(hostname)"
+fi
+
 ~/.nix-profile/bin/nix-env "$@"
 
 
